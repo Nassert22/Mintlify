@@ -1,0 +1,152 @@
+---
+title: "4. عمليات تعلم الآلة (MLOps/LLMOps) والنشر والموثوقية"
+description: "الوزن: 18.0% — أعلى وزن في الاختبار: دورة حياة النموذج في الإنتاج"
+---
+
+<Info>**الوزن:** 18.0% (الأعلى) | **الأسابيع:** 6–7 | **نمط الأسئلة المتوقع:** سيناريوهات تدهور نماذج، اختيار استراتيجية نشر، تصميم مراقبة، إدارة دورة حياة النماذج والـ prompts.</Info>
+
+## أهداف التعلم
+
+1. تصميم دورة حياة كاملة للنموذج: تجربة → تسجيل → نشر → مراقبة → إعادة تدريب.
+2. اختيار استراتيجية النشر المناسبة للمخاطر وتبريرها.
+3. بناء مراقبة تكشف drift وتدهور الجودة قبل أن يلاحظه العميل.
+4. تطبيق نفس المبادئ على LLM: prompts، evals، تكلفة، guardrails.
+
+## الموضوعات الأساسية
+
+<AccordionGroup>
+  <Accordion title="مستويات نضج MLOps">
+    - **المستوى 0**: يدوي، notebook → نشر يدوي. **المستوى 1**: pipeline تدريب آلي، تسليم مستمر للنموذج. **المستوى 2**: CI/CD كامل للـ pipeline نفسه + إعادة تدريب آلية مُحفَّزة.
+    - في الاختبار، اعرف ما الذي ينقل مؤسسة من مستوى إلى آخر (automation، tracking، monitoring، triggers).
+  </Accordion>
+  <Accordion title="إدارة التجارب والنماذج والبيانات">
+    - **Experiment tracking** (MLflow، W&B): parameters، metrics، artifacts، code version لكل تشغيل. **Model registry**: مراحل (staging/production/archived)، lineage، approvals.
+    - **Data versioning** (DVC، LakeFS، Delta Lake): النموذج بلا نسخة بياناته غير قابل لإعادة الإنتاج.
+    - **Feature store** (Feast وغيرها): يوحّد الميزات بين التدريب (offline) والاستدلال (online) ويمنع skew.
+    - **Data validation** (Great Expectations، TFDV): schema، نطاقات، نسبة القيم المفقودة، قبل التدريب وعند الاستدلال.
+  </Accordion>
+  <Accordion title="Pipelines والأتمتة">
+    - أدوات: Airflow، Kubeflow Pipelines، Prefect، Dagster، Vertex/SageMaker Pipelines.
+    - المراحل: ingest → validate → transform → train → evaluate → (gate: أفضل من الحالي؟) → register → deploy.
+    - **Triggers لإعادة التدريب**: جدول زمني، drift مكتشف، بيانات جديدة بحجم معين، تدهور مقياس أعمال. إعادة التدريب الآلي **بدون gate تقييم** خطر.
+  </Accordion>
+  <Accordion title="استراتيجيات النشر">
+    | الاستراتيجية | الآلية | متى |
+    |---|---|---|
+    | **Shadow** | الجديد يستقبل نسخة من الطلبات، مخرجاته لا تُستخدم | تحقق آمن من الأداء والزمن قبل أي أثر على المستخدم |
+    | **Canary** | نسبة صغيرة (1–5%) تُوجَّه للجديد وتتزايد | التحقق التدريجي مع مقاييس حية |
+    | **Blue/Green** | بيئتان كاملتان، تبديل فوري | rollback فوري مطلوب، تكلفة مضاعفة مقبولة |
+    | **A/B test** | تقسيم المستخدمين لقياس أثر أعمال | القرار يعتمد على KPI لا على مقياس ML فقط |
+    | **Rolling** | استبدال تدريجي للنسخ | خدمات عديمة الحالة، مخاطر منخفضة |
+
+    **Rollback** يجب أن يكون بنقرة: نموذج سابق جاهز في الـ registry والبنية تدعم التبديل. **Champion/Challenger** نمط دائم لمقارنة النماذج.
+  </Accordion>
+  <Accordion title="المراقبة (Monitoring)">
+    - **صحة النظام**: latency (p50/p95/p99)، throughput، error rate، استهلاك الموارد.
+    - **صحة البيانات**: schema، missing values، توزيعات المدخلات (**Data drift**: PSI، KS test، Jensen-Shannon).
+    - **صحة النموذج**: توزيع التنبؤات (**Prediction drift**)، والمقاييس الحقيقية عند توفر labels (**Concept drift**). Labels غالبًا متأخرة، فراقب proxies.
+    - **صحة الأعمال**: KPI المرتبط (معدل التحويل، وقت المعالجة، التصعيدات).
+    - **التنبيه**: عتبات + نافذة زمنية لتفادي الضجيج، runbooks لكل تنبيه.
+    - أدوات: Evidently، WhyLabs، Arize، Prometheus/Grafana.
+  </Accordion>
+  <Accordion title="LLMOps: ما يختلف">
+    - **الأصول المُدارة** تشمل الـ prompts والنماذج والفهارس (RAG indexes) والأدوات، لا الأوزان فقط.
+    - **Evals مستمرة**: مجموعة ذهبية + LLM-as-judge + إشارات المستخدم. تعمل عند كل تغيير prompt/نموذج/فهرس وبشكل دوري على عينة إنتاج.
+    - **Tracing** (Langfuse، LangSmith، OpenTelemetry): كل خطوة في السلسلة (retrieval، calls، tools) مع التكلفة والزمن.
+    - **التكلفة**: tokens لكل طلب، caching، routing لنموذج أصغر للطلبات البسيطة، حدود إنفاق.
+    - **Guardrails**: فلترة مدخلات (PII، injection)، فلترة مخرجات (سمّية، تسريب)، قيود schema.
+    - **إدارة تغييرات المزود**: النموذج نفسه قد يتغير خلف API (model deprecation)، فثبّت الإصدار وراقب.
+  </Accordion>
+  <Accordion title="الموثوقية: SLOs و Incident Response">
+    - **SLI** (المقياس، مثل نسبة الطلبات < 500ms) → **SLO** (الهدف، 99.5%) → **Error budget** (ما يُسمح بخسارته).
+    - Incident response لأنظمة ML: كشف → احتواء (rollback/fallback) → تشخيص (drift؟ بيانات؟ بنية؟) → إصلاح → **postmortem بلا لوم**.
+    - **Graceful degradation**: نموذج بديل أبسط، قواعد ثابتة، أو إبلاغ واضح.
+  </Accordion>
+</AccordionGroup>
+
+## ما يُسقط المرشحين في هذا المجال
+
+<Warning>
+- الخلط بين Data drift (المدخلات تغيرت) و Concept drift (العلاقة تغيرت). الأول يُكشف فورًا، الثاني يحتاج labels.
+- افتراض أن إعادة التدريب الدورية تحل كل شيء (قد تُدخل نموذجًا أسوأ بدون gate).
+- اختيار Canary لتحقق أولي من نموذج عالي المخاطر بينما Shadow أنسب.
+- مراقبة البنية فقط (CPU، latency) وتجاهل جودة التنبؤات.
+- معاملة الـ prompt كنص عابر لا كأصل له إصدار واختبارات.
+</Warning>
+
+## تمرين عملي
+
+<Steps>
+  <Step title="تتبع وتسجيل">
+    أضف MLflow لمشروع الأسبوع 2: سجّل parameters/metrics/artifacts، ثم سجّل أفضل نموذج في Model Registry بمرحلة `Staging`.
+  </Step>
+  <Step title="Pipeline إعادة تدريب">
+    ```python
+    # Prefect-style retraining flow with an evaluation gate
+    from prefect import flow, task
+
+    @task
+    def load_and_validate():
+        df = load_data()
+        assert df["amount"].isna().mean() < 0.01, "too many missing amounts"
+        return df
+
+    @task
+    def train(df):
+        return fit_model(df)
+
+    @task
+    def evaluate(model, df):
+        return pr_auc(model, holdout(df))
+
+    @task
+    def promote_if_better(model, score, threshold):
+        current = registry.get_production_score()
+        if score > current + threshold:
+            registry.promote(model, stage="Production")
+            return "promoted"
+        return "kept_current"
+
+    @flow
+    def retrain(threshold: float = 0.01):
+        df = load_and_validate()
+        model = train(df)
+        score = evaluate(model, df)
+        return promote_if_better(model, score, threshold)
+    ```
+  </Step>
+  <Step title="مراقبة Drift">
+    استخدم Evidently لحساب PSI على ميزات مرجعية (بيانات التدريب) مقابل بيانات إنتاج محاكاة. اصنع تنبيهًا عند PSI > 0.2 لأي ميزة.
+  </Step>
+  <Step title="LLMOps">
+    لنظام RAG من الأسبوع 4: أضف Langfuse tracing، وسجّل إصدار الـ prompt مع كل استجابة، وشغّل eval آليًا في CI عند تغيير الـ prompt مع عتبة faithfulness ≥ 0.85.
+  </Step>
+</Steps>
+
+## أسئلة تدريب
+
+<AccordionGroup>
+  <Accordion title="س1. نموذج توصية انخفض معدل النقر عليه 30% خلال أسبوع بعد نشر نسخة جديدة اجتازت كل الاختبارات الإحصائية. ما الخطوة الأولى وما الدرس؟">
+    **Rollback فوري** إلى النسخة السابقة (الاحتواء قبل التشخيص). الدرس: المقاييس الإحصائية (offline) لا تضمن مقياس الأعمال (online). كان يجب نشره Canary/A-B مع مراقبة CTR كـ gate تلقائي.
+  </Accordion>
+  <Accordion title="س2. PSI لميزة 'الدخل' قفز إلى 0.4 لكن دقة النموذج لم تتغير. هل تعيد التدريب؟">
+    ليس بالضرورة. Data drift بلا تدهور أداء قد يعني أن النموذج مقاوم لهذه الميزة أو أن الـ labels لم تصل بعد. الإجراء: تحقق من سبب التغير (مصدر بيانات؟ تغير حقيقي في السكان؟)، راقب الأداء عن كثب مع وصول labels، وجهّز challenger. إعادة التدريب الانعكاسية قد تُدخل ضجيجًا.
+  </Accordion>
+  <Accordion title="س3. مزود LLM أعلن إيقاف النموذج الذي تستخدمه خلال 60 يومًا. ما خطة الترحيل؟">
+    (1) تثبيت إصدار النموذج البديل، (2) تشغيل مجموعة evals كاملة على البديل ومقارنة faithfulness/relevance/تكلفة/latency، (3) ضبط prompts إذا لزم (كل نموذج يستجيب بشكل مختلف)، (4) نشر Shadow ثم Canary، (5) تحديث الوثائق والتنبيهات. ابدأ فورًا لا في اليوم 50.
+  </Accordion>
+  <Accordion title="س4. ما الفرق بين Training/Serving Skew و Drift؟">
+    **Skew**: اختلاف بين كيفية حساب الميزات في التدريب والاستدلال (خطأ هندسي، موجود من اليوم الأول). **Drift**: تغير في البيانات أو العلاقات مع الزمن (طبيعي، يحدث لاحقًا). Feature store يحل الأول؛ المراقبة وإعادة التدريب يعالجان الثاني.
+  </Accordion>
+  <Accordion title="س5. كيف تصمم SLO لخدمة استدلال LLM؟">
+    عدة SLIs: **توفر** (نسبة الطلبات غير 5xx ≥ 99.9%)، **زمن** (p95 لأول رمز < 1s، p95 للاكتمال < 8s)، **جودة** (faithfulness على عينة يومية ≥ 0.85)، **تكلفة** (متوسط tokens/طلب ضمن ميزانية). لكل SLI error budget وتنبيه وrunbook.
+  </Accordion>
+</AccordionGroup>
+
+## مراجع مختارة
+
+- Google Cloud, *MLOps: Continuous delivery and automation pipelines in machine learning*.
+- Chip Huyen, *Designing Machine Learning Systems* — فصول Monitoring و Continual Learning.
+- *Made With ML* (Goku Mohandas) — MLOps course.
+- وثائق MLflow، Evidently، Langfuse.
+- Google SRE Workbook — فصل *Implementing SLOs*.

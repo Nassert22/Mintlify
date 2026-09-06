@@ -1,0 +1,41 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "AI Engineer Badge — برنامج التدريب",
+  "description": "برنامج تدريب عملي للتحضير لشارة مهندس ذكاء اصطناعي (SDAIA) بمستوى Expert",
+  "colors": {
+    "primary": "#0EA5E9",
+    "light": "#38BDF8",
+    "dark": "#0369A1"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "ابدأ هنا",
+        "pages": ["index", "self-assessment", "study-plan"]
+      },
+      {
+        "group": "مجالات الاختبار",
+        "pages": [
+          "domains/01-data-ml-foundations",
+          "domains/02-core-ai-deep-learning-genai",
+          "domains/03-ai-software-engineering",
+          "domains/04-mlops-llmops",
+          "domains/05-architecture-infrastructure",
+          "domains/06-responsible-ai-security",
+          "domains/07-business-professional-practice"
+        ]
+      },
+      {
+        "group": "التطبيق العملي",
+        "pages": ["capstone", "exam-day"]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/SDAIA_SA"
+    }
+  }
+}

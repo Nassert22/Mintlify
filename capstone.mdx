@@ -1,0 +1,100 @@
+---
+title: "المشروع التطبيقي"
+description: "نظام واحد قابل للإنتاج يغطي المجالات السبعة ويثبت مستوى Expert"
+---
+
+## الفكرة
+
+مستوى Expert لا يُثبَت بالقراءة. هذا المشروع يجمع كل ما تعلمته في نظام واحد يمكنك عرضه في مقابلة أو ملف أعمال، ويجعل أسئلة الاختبار السيناريوهية مألوفة لأنك عشتها.
+
+**المشروع:** مساعد ذكي لخدمة العملاء في بنك افتراضي، يجمع بين:
+
+- **نموذج تصنيف** لكشف الاحتيال في المعاملات (ML تقليدي).
+- **RAG** للإجابة عن أسئلة العملاء من سياسات البنك (GenAI).
+- **Agent** بأداة واحدة مؤثرة (فتح بلاغ) تتطلب موافقة بشرية.
+
+يمكنك استبدال المجال (صحة، طاقة، حكومة) بما يناسب خبرتك مع الحفاظ على المكونات الثلاثة.
+
+## المكونات ومعايير القبول
+
+<Steps>
+  <Step title="1. البيانات والنموذج (المجال 1)">
+    - Pipeline بـ scikit-learn داخل `Pipeline` بلا تسريب، تقسيم زمني.
+    - PR-AUC مُبلَّغ مع فاصل ثقة، threshold مضبوط بتكلفة الخطأ، calibration curve.
+    - **القبول:** تقرير تقييم يشرح لماذا هذا المقياس، مع تحليل أخطاء حسب شرائح.
+  </Step>
+  <Step title="2. RAG و Agent (المجال 2)">
+    - Hybrid retrieval + reranker، chunking بحسب البنية، embedding يدعم العربية.
+    - Agent بـ function calling وحد أقصى للخطوات.
+    - **القبول:** مجموعة تقييم 30 سؤالًا، Context recall ≥ 0.85، Faithfulness ≥ 0.85.
+  </Step>
+  <Step title="3. الخدمة والتكامل (المجال 3)">
+    - FastAPI مع Pydantic، versioning، streaming لـ RAG، structured outputs.
+    - اختبارات وحدة (mock)، عقد، تكامل؛ Docker متعدد المراحل؛ CI يشغّل lint + tests + audit.
+    - **القبول:** تغطية اختبارات ≥ 80% للمنطق، CI أخضر، لا أسرار في المستودع.
+  </Step>
+  <Step title="4. MLOps / LLMOps (المجال 4)">
+    - MLflow tracking + registry، pipeline إعادة تدريب بـ gate.
+    - مراقبة drift (Evidently) + tracing للـ LLM (Langfuse) + prompt versioning + evals في CI.
+    - **القبول:** وثيقة runbook: ماذا يحدث عند تدهور الأداء، وكيف يتم rollback خلال 5 دقائق.
+  </Step>
+  <Step title="5. المعمارية والأداء (المجال 5)">
+    - مخطط معمارية مع تبرير كل مكون.
+    - اختبار حمل قبل/بعد تحسينين (caching، batching/workers).
+    - **القبول:** جدول p50/p95/p99 و RPS قبل وبعد، وتقدير تكلفة شهرية لـ 100 ألف طلب.
+  </Step>
+  <Step title="6. المسؤول والأمن (المجال 6)">
+    - تدقيق عدالة على نموذج الاحتيال، SHAP في `/explain`.
+    - PII redaction قبل LLM، guardrails مدخلات/مخرجات، red teaming بـ 20 هجومًا موثقًا.
+    - Model Card + مصفوفة مخاطر + تصنيف مخاطر ونوع الإشراف البشري.
+    - **القبول:** نسبة نجاح هجمات injection بعد الدفاعات < 10% على مجموعتك.
+  </Step>
+  <Step title="7. الأعمال (المجال 7)">
+    - Business Case صفحة واحدة، ملخص تنفيذي 150 كلمة، KPIs بمواعيد.
+    - **القبول:** شخص غير تقني يستطيع تلخيص التوصية بعد قراءة الملخص.
+  </Step>
+</Steps>
+
+## هيكل المستودع المقترح
+
+```text
+ai-banking-assistant/
+├── README.md                # overview, architecture diagram, how to run
+├── docs/
+│   ├── business-case.md
+│   ├── model-card.md
+│   ├── risk-register.md
+│   ├── runbook.md
+│   └── load-test-results.md
+├── data/                    # DVC-tracked, never raw PII
+├── src/
+│   ├── api/                 # FastAPI routers, schemas
+│   ├── services/            # business logic, guardrails
+│   ├── ml/                  # training pipeline, evaluation
+│   ├── rag/                 # ingestion, retrieval, generation
+│   └── agent/               # tools, approval flow
+├── prompts/                 # versioned prompt files
+├── evals/                   # golden sets + eval runners
+├── tests/
+├── pipelines/               # retraining flow
+├── monitoring/              # drift + tracing config
+├── Dockerfile
+└── .github/workflows/ci.yml
+```
+
+## جدول التنفيذ (أسبوعان)
+
+| اليوم | المهمة |
+|---|---|
+| 1–2 | البيانات، النموذج، التقييم، MLflow |
+| 3–4 | RAG + evals، Agent مع الموافقة |
+| 5–6 | FastAPI، الاختبارات، Docker، CI |
+| 7–8 | المراقبة، tracing، pipeline إعادة التدريب، runbook |
+| 9 | اختبار الحمل والتحسين |
+| 10–11 | العدالة، SHAP، guardrails، red teaming، Model Card |
+| 12 | Business Case، الملخص التنفيذي |
+| 13–14 | مراجعة، README، عرض تجريبي |
+
+<Tip>
+**انشره على GitHub بوثائق كاملة.** المشروع الموثق جيدًا يخدمك في ثلاثة أماكن: التحضير للاختبار، ملف الأعمال، والمقابلات. اكتب README كأنك تشرح لمحكّم في لجنة الشارة.
+</Tip>
