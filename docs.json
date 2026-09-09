@@ -13,7 +13,11 @@
     "groups": [
       {
         "group": "ابدأ هنا",
-        "pages": ["index", "self-assessment", "study-plan"]
+        "pages": [
+          "index",
+          "self-assessment",
+          "study-plan"
+        ]
       },
       {
         "group": "مجالات الاختبار",
@@ -29,7 +33,11 @@
       },
       {
         "group": "التطبيق العملي",
-        "pages": ["capstone", "exam-day"]
+        "pages": [
+          "capstone",
+          "capstone-darvin",
+          "exam-day"
+        ]
       }
     ]
   },
