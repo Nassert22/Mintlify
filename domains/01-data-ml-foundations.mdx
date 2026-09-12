@@ -1,0 +1,135 @@
+---
+title: "1. أسس البيانات وتعلم الآلة وتقييم النماذج"
+description: "الوزن: 17.3% — الأساس الذي تُبنى عليه كل المجالات الأخرى"
+---
+
+<Info>**الوزن:** 17.3% | **الأسابيع:** 1–2 | **نمط الأسئلة المتوقع:** تشخيص أخطاء في pipeline، اختيار المقياس الصحيح، تفسير نتائج تقييم.</Info>
+
+## أهداف التعلم
+
+بنهاية هذا المجال يجب أن تستطيع:
+
+1. بناء pipeline معالجة بيانات لا يسرّب معلومات من الاختبار إلى التدريب.
+2. اختيار المقياس المناسب للمشكلة وتبرير الاختيار بتكلفة الخطأ.
+3. تشخيص Overfitting/Underfitting واختيار العلاج المناسب.
+4. تفسير نتائج تقييم نموذج لصاحب مصلحة غير تقني.
+
+## الموضوعات الأساسية
+
+<AccordionGroup>
+  <Accordion title="جودة البيانات ومعالجتها">
+    - **أنواع البيانات**: رقمية، فئوية (nominal/ordinal)، نصية، زمنية.
+    - **القيم المفقودة**: الفرق بين MCAR/MAR/MNAR يحدد العلاج. الحذف آمن فقط مع MCAR ونسبة صغيرة. Imputation بالمتوسط يُخفّض التباين؛ KNN/Iterative imputers أفضل لكن أغلى. **أضف مؤشر "كان مفقودًا" كميزة** عندما يكون الغياب نفسه إشارة.
+    - **الترميز**: One-hot للفئات القليلة، Target/Ordinal encoding للفئات الكثيرة (مع الحذر من التسريب في Target encoding: يجب أن يُحسب داخل الـ fold).
+    - **القياس**: StandardScaler للنماذج الخطية و SVM و الشبكات العصبية. الأشجار لا تحتاجه. **يُفَتّ (fit) على التدريب فقط** ثم يُطبّق على الاختبار.
+    - **القيم الشاذة**: IQR، Z-score، Isolation Forest. لا تحذفها تلقائيًا؛ في كشف الاحتيال هي الهدف.
+  </Accordion>
+  <Accordion title="التقسيم و Cross-Validation ومنع التسريب">
+    - **القاعدة الذهبية**: كل خطوة تتعلم شيئًا من البيانات (scaler، encoder، imputer، feature selection) تُعتبر جزءًا من النموذج وتُفَتّ داخل الـ fold. استخدم `sklearn.pipeline.Pipeline` لضمان ذلك.
+    - **KFold** للبيانات المستقلة، **StratifiedKFold** للفئات غير المتوازنة، **GroupKFold** عندما تتكرر الكيانات، **TimeSeriesSplit** للبيانات الزمنية.
+    - **Holdout** نهائي لا يُلمس إلا مرة واحدة في النهاية. إذا اخترت hyperparameters بناءً على test set فقد "أحرقته".
+    - **Nested CV** عندما تحتاج تقدير أداء غير متحيز مع ضبط hyperparameters.
+  </Accordion>
+  <Accordion title="خوارزميات تعلم الآلة الأساسية">
+    - **الانحدار الخطي/اللوجستي**: baseline قوي وقابل للتفسير. اعرف افتراضاتهما ومتى تنهار (multicollinearity، علاقات غير خطية).
+    - **الأشجار و Ensembles**: Random Forest (bagging يقلل التباين)، Gradient Boosting (XGBoost/LightGBM/CatBoost يقلل الانحياز تدريجيًا). الأفضل عادة على البيانات الجدولية.
+    - **SVM، KNN، Naive Bayes**: اعرف متى تُستخدم ونقاط ضعفها (KNN بطيء وقت التنبؤ، NB يفترض الاستقلال).
+    - **التعلم غير الموجّه**: K-Means (يحتاج k وعدد المجموعات الكروية)، DBSCAN (كثافة، لا يحتاج k)، PCA (خفض الأبعاد الخطي)، UMAP/t-SNE للتصور فقط.
+    - **Bias/Variance**: Underfitting = انحياز عالٍ (النموذج بسيط جدًا). Overfitting = تباين عالٍ (يحفظ الضجيج). العلاج: بيانات أكثر، regularization (L1/L2)، تبسيط النموذج، early stopping، ensembles.
+  </Accordion>
+  <Accordion title="تقييم النماذج">
+    **التصنيف:**
+    - Confusion matrix → Precision (كم من توقعاتي الإيجابية صحيحة) / Recall (كم من الإيجابيات الحقيقية التقطت) / F1.
+    - **ROC-AUC** يُضلّل مع عدم التوازن الشديد؛ **PR-AUC** أصدق.
+    - **Threshold** ليس 0.5 بالضرورة: اختره من منحنى Precision-Recall حسب تكلفة كل خطأ.
+    - **Calibration**: احتمال 0.8 يجب أن يعني 80% فعليًا. Platt scaling / Isotonic regression. مهم عندما تُستخدم الاحتمالات في قرارات.
+
+    **الانحدار:** MAE (مقاوم للشواذ، بنفس وحدة الهدف)، RMSE (يعاقب الأخطاء الكبيرة)، MAPE (يفشل عند الصفر)، R².
+
+    **الترتيب/التوصية:** Precision@k، NDCG، MRR.
+
+    **تحليل الأخطاء**: افحص الحالات التي أخطأ فيها النموذج مقسّمة حسب شرائح (segments). التدهور في شريحة معينة غالبًا أهم من المتوسط العام.
+  </Accordion>
+  <Accordion title="هندسة الميزات واختيارها">
+    - Feature engineering من المعرفة بالمجال يتفوق غالبًا على تعقيد النموذج.
+    - **اختيار الميزات**: Filter (correlation، mutual information)، Wrapper (RFE)، Embedded (L1، feature importance).
+    - **الحذر**: feature importance في الأشجار منحاز للميزات عالية الكاردينالية. **Permutation importance** و **SHAP** أكثر موثوقية.
+    - الميزات الزمنية: lag features، rolling windows، مع الانتباه لعدم استخدام المستقبل.
+  </Accordion>
+</AccordionGroup>
+
+## ما يُسقط المرشحين في هذا المجال
+
+<Warning>
+- تطبيق `fit_transform` على كامل البيانات قبل التقسيم (تسريب).
+- الاعتماد على Accuracy أو ROC-AUC مع فئات غير متوازنة.
+- الخلط بين Precision و Recall تحت الضغط. تذكّر: **Recall = الحساسية للفئة الإيجابية، Precision = نقاء التنبؤات الإيجابية.**
+- افتراض أن Cross-validation يحمي من التسريب تلقائيًا (لا يحمي إذا كانت المعالجة خارجه).
+- ضبط hyperparameters على test set.
+</Warning>
+
+## تمرين عملي
+
+<Steps>
+  <Step title="اختر dataset غير متوازن">
+    مثال: Credit Card Fraud (Kaggle) أو أي بيانات فيها فئة إيجابية أقل من 3%.
+  </Step>
+  <Step title="ابنِ pipeline صحيحًا">
+    ```python
+    from sklearn.pipeline import Pipeline
+    from sklearn.compose import ColumnTransformer
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold, cross_validate
+
+    num_pipe = Pipeline([("impute", SimpleImputer(strategy="median")),
+                         ("scale", StandardScaler())])
+    cat_pipe = Pipeline([("impute", SimpleImputer(strategy="most_frequent")),
+                         ("onehot", OneHotEncoder(handle_unknown="ignore"))])
+
+    pre = ColumnTransformer([("num", num_pipe, num_cols),
+                             ("cat", cat_pipe, cat_cols)])
+
+    model = Pipeline([("pre", pre),
+                      ("clf", LogisticRegression(class_weight="balanced", max_iter=1000))])
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    scores = cross_validate(model, X, y, cv=cv,
+                            scoring=["accuracy", "roc_auc", "average_precision"])
+    # average_precision ≈ PR-AUC. Compare it against accuracy and explain the gap.
+    ```
+  </Step>
+  <Step title="اضبط الـ threshold حسب التكلفة">
+    افترض أن False Negative يكلف 100 وحدة و False Positive يكلف 5. احسب التكلفة الإجمالية لكل threshold من 0.05 إلى 0.95 واختر الأدنى.
+  </Step>
+  <Step title="قارن مع Gradient Boosting">
+    استبدل `LogisticRegression` بـ `LightGBM`، قارن PR-AUC و Calibration curve، واكتب فقرة تشرح لمدير غير تقني أي نموذج تنصح به ولماذا.
+  </Step>
+</Steps>
+
+## أسئلة تدريب
+
+<AccordionGroup>
+  <Accordion title="س1. نموذج انحدار يعطي RMSE = 50 و MAE = 12. ماذا يخبرك هذا الفرق الكبير؟">
+    وجود عدد قليل من الأخطاء **الكبيرة جدًا** (outliers في الأخطاء). RMSE يعاقب الأخطاء الكبيرة تربيعيًا. الخطوة التالية: تحليل الحالات ذات الخطأ الأكبر؛ قد تكون شريحة معينة من البيانات أو أخطاء في الـ labels.
+  </Accordion>
+  <Accordion title="س2. أداء التدريب 98% والتحقق 71%. اذكر ثلاثة علاجات مرتبة حسب الأولوية.">
+    هذا Overfitting (فجوة كبيرة). الأولوية: (1) تحقق من **التسريب أو تكرار العينات** بين المجموعتين، (2) **Regularization** أو تبسيط النموذج / early stopping، (3) **بيانات أكثر أو augmentation**. لا تبدأ بجمع بيانات قبل استبعاد التسريب.
+  </Accordion>
+  <Accordion title="س3. لديك بيانات معاملات عملاء لثلاث سنوات وتريد توقع الإلغاء. كيف تقسّم البيانات؟">
+    **تقسيم زمني**: التدريب على الفترة الأقدم والتحقق/الاختبار على الأحدث، مع التأكد أن الميزات لكل عميل محسوبة فقط من بيانات قبل نقطة التنبؤ. استخدام تقسيم عشوائي هنا يسرّب معلومات من المستقبل ويعطي أداءً متفائلًا.
+  </Accordion>
+  <Accordion title="س4. متى يكون Target Encoding خطرًا وكيف تجعله آمنًا؟">
+    خطر عندما يُحسب على كامل بيانات التدريب ثم يُستخدم على نفس الصفوف (يسرّب الهدف). الحل: حسابه بـ **out-of-fold** داخل الـ CV، أو مع smoothing/regularization، وداخل `Pipeline` لضمان تطبيقه على الاختبار من إحصاءات التدريب فقط.
+  </Accordion>
+  <Accordion title="س5. نموذجان بنفس F1. الأول Precision 0.9 / Recall 0.5 والثاني العكس. أيهما لكشف السرطان وأيهما لتصفية البريد المزعج؟">
+    **كشف السرطان → Recall عالٍ** (الثاني): تفويت حالة أخطر من إنذار كاذب يُراجع. **البريد المزعج → Precision عالٍ** (الأول): حجب بريد مهم أسوأ من تمرير رسالة مزعجة.
+  </Accordion>
+</AccordionGroup>
+
+## مراجع مختارة
+
+- Aurélien Géron, *Hands-On Machine Learning with Scikit-Learn, Keras & TensorFlow* — الفصول 1–7.
+- وثائق scikit-learn: قسم *Model selection and evaluation* و *Pipelines and composite estimators*.
+- Google, *Rules of Machine Learning* (Martin Zinkevich).

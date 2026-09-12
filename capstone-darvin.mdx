@@ -1,0 +1,275 @@
+---
+title: "تطبيق البرنامج على نظام دارفن"
+description: "الهيكل المستهدف لمشروعك الحقيقي، مع ربط كل مجلد بمجال من مجالات الشارة السبعة"
+---
+
+## نقطة البداية: ما هو موجود اليوم
+
+| الطبقة | الواقع الحالي |
+|---|---|
+| الواجهة | React 19 + Vite + TypeScript، تسع شاشات حسب الدور (HR، المركبات، المستخلصات، التحويلات، المستخدمون، المساعد الذكي، الملف الشخصي) |
+| البيانات | Firebase مباشرة من المتصفح (Auth، Firestore، Storage) بهوية المستخدم؛ الحاجز الأمني هو `firestore.rules` و `storage.rules` |
+| الخادم | `server.ts` (Express على Cloud Run) بمسارين: `/api/chat` إلى Gemini و `/api/admin/users/email` إلى Identity Toolkit |
+| الذكاء الاصطناعي | `AIAssistantApp.tsx`: أدوات تُنفَّذ في المتصفح بصلاحيات المستخدم نفسه |
+| التوثيق | CLAUDE.md، HANDOFF.md، DEPLOY.md، DESIGN.md |
+
+<Note>
+هذا الأساس جيد لمستوى Expert لأن **الصلاحيات الدنيا مفروضة بالبنية** (المساعد لا يستطيع أكثر مما يستطيعه المستخدم). ما ينقصه هو ما تقيسه الشارة: تقييم منهجي، مراقبة، نموذج ML حقيقي، حوكمة موثقة، وأداء مقاس.
+</Note>
+
+## الهيكل المستهدف
+
+كل سطر جديد موسوم بالمجال الذي يغطيه. الملفات الموجودة اليوم بلا وسم. مفتاح الرموز:
+
+```text
+D1  أسس البيانات وتعلم الآلة وتقييم النماذج                     17.3%
+D2  أساسيات الذكاء الاصطناعي والتعلم العميق والذكاء التوليدي     16.7%
+D3  هندسة برمجيات الذكاء الاصطناعي والتكامل                      14.0%
+D4  عمليات تعلم الآلة (MLOps/LLMOps) والنشر والموثوقية           18.0%
+D5  المعمارية والبنية التحتية والأداء وقابلية التوسع              12.6%
+D6  الذكاء الاصطناعي المسؤول والأمن والحوكمة                      14.7%
+D7  الأعمال والممارسة المهنية والتعاون                             6.7%
+```
+
+```text
+darvin/
+├── README.md                          # D7  architecture diagram, how to run, KPIs
+├── CLAUDE.md · HANDOFF.md · DEPLOY.md · DESIGN.md
+├── docs/
+│   ├── business-case.md               # D7  value, TCO, KPIs, kill criteria
+│   ├── architecture.md                # D5  request flow, components, why each
+│   ├── model-card-extracts.md         # D6  ML model documentation
+│   ├── risk-register.md               # D6  AI risks x likelihood x impact
+│   ├── runbook.md                     # D4  what to do when quality/latency degrades
+│   └── load-test-results.md           # D5  p50/p95/p99 before vs after
+│
+├── src/                               # existing React SPA
+│   ├── App.tsx · main.tsx · types.ts · utils.ts
+│   ├── lib/                           # firebase.ts, UserContext.tsx
+│   ├── styles/                        # tokens.css, ui.css
+│   ├── components/                    # HRApp, VehiclesApp, ExtractsApp, TransfersApp, ...
+│   │   ├── ui/
+│   │   └── AIAssistantApp.tsx
+│   └── ai/                            # NEW: client-side AI layer
+│       ├── tools/                     # D2  typed tool definitions (zod), one file per tool
+│       ├── approval/                  # D6  human-in-the-loop gate for mutating tools
+│       └── telemetry.ts               # D4  trace id, prompt version, latency per call
+│
+├── server/                            # D3  server.ts grows into a real service
+│   ├── index.ts
+│   ├── routes/
+│   │   ├── chat.ts                    # /api/chat  (streaming, structured output)
+│   │   ├── admin.ts                   # /api/admin/users/email
+│   │   └── predict.ts                 # D1  proxy to ml/ service
+│   ├── middleware/
+│   │   ├── auth.ts                    # D6  verify Firebase ID token, role
+│   │   ├── rateLimit.ts               # D5  per-user limits, token budget
+│   │   ├── timeout.ts                 # D3  timeouts, retries w/ backoff, circuit breaker
+│   │   └── tracing.ts                 # D4  OpenTelemetry / Langfuse
+│   ├── ai/
+│   │   ├── llm/
+│   │   │   ├── client.ts              # D2  Gemini client, pinned model version
+│   │   │   ├── router.ts              # D5  small model for simple queries
+│   │   │   └── cache.ts               # D5  exact + semantic cache
+│   │   ├── rag/                       # D2  policies, HR rules, vehicle manuals
+│   │   │   ├── ingest.ts              #     chunking by structure, Arabic embeddings
+│   │   │   ├── retrieve.ts            #     hybrid (vector + BM25)
+│   │   │   ├── rerank.ts
+│   │   │   └── generate.ts            #     cite source, say "لا أعلم"
+│   │   ├── agent/
+│   │   │   ├── policy.ts              # D6  which tools need approval, max steps
+│   │   │   └── loop.ts                # D2  plan -> act -> observe
+│   │   └── guardrails/
+│   │       ├── pii.ts                 # D6  redact before leaving the server
+│   │       ├── injection.ts           # D6  indirect injection via attachments
+│   │       └── output.ts              # D6  schema + safety checks on responses
+│   └── schemas/                       # D3  zod request/response contracts
+│
+├── ml/                                # D1  Python service (FastAPI on Cloud Run)
+│   ├── data/                          #     DVC-tracked exports, never raw PII
+│   ├── features/                      #     shared feature code (train == serve)
+│   ├── train.py · evaluate.py         #     time-based split, PR-AUC, calibration
+│   ├── serve/                         #     /predict, model loaded once at startup
+│   ├── pipelines/retrain.py           # D4  retrain flow with evaluation gate
+│   ├── explain.py                     # D6  SHAP top-3 reasons per prediction
+│   └── Dockerfile
+│
+├── prompts/                           # D4  versioned prompt files (system, tools)
+├── evals/                             # D2  D4
+│   ├── golden/                        #     30+ Arabic Q&A per module, expected tool calls
+│   ├── redteam/                       # D6  20+ injection attacks (direct + via documents)
+│   └── run_evals.ts                   #     faithfulness, relevance, tool accuracy, CI gate
+│
+├── tests/
+│   ├── unit/                          # D3  tools, guardrails, schemas (LLM mocked)
+│   ├── contract/                      # D3  API response shapes
+│   ├── integration/                   # D3  Firebase emulator + real small model
+│   └── load/k6.js                     # D5
+│
+├── monitoring/
+│   ├── drift/                         # D4  PSI on ml/ inputs vs training reference
+│   ├── dashboards/                    # D4  latency, cost/tokens, quality sample, KPIs
+│   └── alerts.yaml                    # D4  SLO thresholds + runbook links
+│
+├── firestore.rules · storage.rules · firebase-applet-config.json
+├── Dockerfile                         # D3  multi-stage (server + dist)
+└── .github/workflows/
+    ├── ci.yml                         # D3  lint, unit, contract, build, audit
+    ├── evals.yml                      # D4  runs on prompt/model/index change
+    └── deploy.yml                     # D4  canary to Cloud Run, rollback on SLO breach
+```
+
+## الخريطة نفسها مرتّبة حسب المجال
+
+نفس الملفات أعلاه، لكن مجمّعة تحت عنوان المجال الذي تخدمه. المجلد الواحد قد يظهر تحت أكثر من مجال لأن ملفاته تخدم مجالات مختلفة (مثل `server/` الذي بنيته للمجال 3 لكن `guardrails/` بداخله للمجال 6).
+
+```text
+════════════════════════════════════════════════════════════════════
+ D1 · أسس البيانات وتعلم الآلة وتقييم النماذج                 17.3%
+════════════════════════════════════════════════════════════════════
+ml/
+├── data/                              # DVC-tracked exports, never raw PII
+├── features/                          # shared feature code (train == serve)
+├── train.py · evaluate.py             # time-based split, PR-AUC, calibration
+├── serve/                             # /predict, model loaded once at startup
+└── Dockerfile
+server/routes/predict.ts               # proxy to ml/ service
+
+════════════════════════════════════════════════════════════════════
+ D2 · أساسيات الذكاء الاصطناعي والتعلم العميق والذكاء التوليدي 16.7%
+════════════════════════════════════════════════════════════════════
+server/ai/llm/client.ts                # Gemini client, pinned model version
+server/ai/rag/
+├── ingest.ts                          # chunking by structure, Arabic embeddings
+├── retrieve.ts                        # hybrid (vector + BM25)
+├── rerank.ts
+└── generate.ts                        # cite source, say "لا أعلم"
+server/ai/agent/loop.ts                # plan -> act -> observe
+src/ai/tools/                          # typed tool definitions (zod), one file per tool
+evals/golden/                          # 30+ Arabic Q&A per module, expected tool calls
+
+════════════════════════════════════════════════════════════════════
+ D3 · هندسة برمجيات الذكاء الاصطناعي والتكامل                  14.0%
+════════════════════════════════════════════════════════════════════
+server/
+├── index.ts
+├── routes/
+│   ├── chat.ts                        # /api/chat (streaming, structured output)
+│   └── admin.ts                       # /api/admin/users/email
+├── middleware/timeout.ts              # timeouts, retries w/ backoff, circuit breaker
+└── schemas/                           # zod request/response contracts
+tests/
+├── unit/                              # tools, guardrails, schemas (LLM mocked)
+├── contract/                          # API response shapes
+└── integration/                       # Firebase emulator + real small model
+Dockerfile                             # multi-stage (server + dist)
+.github/workflows/ci.yml               # lint, unit, contract, build, audit
+
+════════════════════════════════════════════════════════════════════
+ D4 · عمليات تعلم الآلة (MLOps/LLMOps) والنشر والموثوقية       18.0%
+════════════════════════════════════════════════════════════════════
+prompts/                               # versioned prompt files (system, tools)
+evals/run_evals.ts                     # faithfulness, relevance, tool accuracy, CI gate
+src/ai/telemetry.ts                    # trace id, prompt version, latency per call
+server/middleware/tracing.ts           # OpenTelemetry / Langfuse
+ml/pipelines/retrain.py                # retrain flow with evaluation gate
+monitoring/
+├── drift/                             # PSI on ml/ inputs vs training reference
+├── dashboards/                        # latency, cost/tokens, quality sample, KPIs
+└── alerts.yaml                        # SLO thresholds + runbook links
+docs/runbook.md                        # what to do when quality/latency degrades
+.github/workflows/evals.yml            # runs on prompt/model/index change
+.github/workflows/deploy.yml           # canary to Cloud Run, rollback on SLO breach
+
+════════════════════════════════════════════════════════════════════
+ D5 · المعمارية والبنية التحتية والأداء وقابلية التوسع         12.6%
+════════════════════════════════════════════════════════════════════
+server/ai/llm/router.ts                # small model for simple queries
+server/ai/llm/cache.ts                 # exact + semantic cache
+server/middleware/rateLimit.ts         # per-user limits, token budget
+tests/load/k6.js
+docs/architecture.md                   # request flow, components, why each
+docs/load-test-results.md              # p50/p95/p99 before vs after
+
+════════════════════════════════════════════════════════════════════
+ D6 · الذكاء الاصطناعي المسؤول والأمن والحوكمة                 14.7%
+════════════════════════════════════════════════════════════════════
+src/ai/approval/                       # human-in-the-loop gate for mutating tools
+server/middleware/auth.ts              # verify Firebase ID token, role
+server/ai/agent/policy.ts              # which tools need approval, max steps
+server/ai/guardrails/
+├── pii.ts                             # redact before leaving the server
+├── injection.ts                       # indirect injection via attachments
+└── output.ts                          # schema + safety checks on responses
+ml/explain.py                          # SHAP top-3 reasons per prediction
+evals/redteam/                         # 20+ injection attacks (direct + via documents)
+docs/model-card-extracts.md            # ML model documentation
+docs/risk-register.md                  # AI risks x likelihood x impact
+
+════════════════════════════════════════════════════════════════════
+ D7 · الأعمال والممارسة المهنية والتعاون                        6.7%
+════════════════════════════════════════════════════════════════════
+README.md                              # architecture diagram, how to run, KPIs
+docs/business-case.md                  # value, TCO, KPIs, kill criteria
+```
+
+## ربط المجلدات بالمجالات ومعايير القبول
+
+<Steps>
+  <Step title="D1 — أسس البيانات و ML (17.3%): مجلد ml/">
+    اختر حالة استخدام واحدة من بياناتك الفعلية. الأنسب هنا: **توقع تأخر/رفض المستخلصات** (لديك سجل قرارات اعتماد/رفض/تأجيل جاهز كـ labels) أو **كشف التحويلات الشاذة**.
+    - تقسيم زمني، `Pipeline` بلا تسريب، PR-AUC مع threshold مضبوط بتكلفة الخطأ.
+    - **القبول:** تقرير تقييم يشرح المقياس، وتحليل أخطاء حسب المقاول/القسم.
+  </Step>
+  <Step title="D2 — DL/GenAI (16.7%): server/ai/rag و agent و evals/golden">
+    - RAG على سياسات الشركة ولوائح HR وأدلة المركبات، بـ embedding يدعم العربية، hybrid retrieval، reranker.
+    - الأدوات المعرّفة بـ zod في `src/ai/tools` وحلقة agent بحد أقصى للخطوات.
+    - **القبول:** Context recall ≥ 0.85، Faithfulness ≥ 0.85، دقة اختيار الأداة ≥ 0.9 على المجموعة الذهبية.
+  </Step>
+  <Step title="D3 — هندسة البرمجيات (14.0%): server/ و tests/ و CI">
+    - `server.ts` يتحول إلى `server/` بطبقات وعقود zod وأخطاء واضحة (400/422/429/503).
+    - Streaming لـ `/api/chat`، timeouts، retries مع backoff، circuit breaker على Gemini.
+    - **القبول:** اختبارات وحدة لا تستدعي LLM، CI أخضر، `pip-audit`/`npm audit` نظيف، لا أسرار في الصورة.
+  </Step>
+  <Step title="D4 — MLOps/LLMOps (18.0%): prompts/ و monitoring/ و evals.yml و deploy.yml">
+    - الـ prompts ملفات مُصدَّرة، كل استجابة تُسجَّل مع إصدار الـ prompt والنموذج.
+    - Tracing لكل طلب (Langfuse أو OpenTelemetry)، dashboard للتكلفة والزمن وعينة جودة يومية.
+    - Drift على مدخلات نموذج المستخلصات، pipeline إعادة تدريب بـ gate.
+    - **القبول:** runbook يشرح rollback خلال 5 دقائق، وeval يفشل الـ CI عند تدهور faithfulness.
+  </Step>
+  <Step title="D5 — المعمارية والأداء (12.6%): router.ts و cache.ts و tests/load">
+    - قِس p95 لـ `/api/chat` بـ k6، ثم أضف caching و routing (نموذج أصغر للاستعلامات البسيطة) وقارن.
+    - وثّق التدفق الحالي (المتصفح ← Firestore مباشرة، الخادم استثناء) وبرر كل مكون في `docs/architecture.md`.
+    - **القبول:** جدول قبل/بعد، وتقدير تكلفة شهرية لـ 100 ألف طلب.
+  </Step>
+  <Step title="D6 — المسؤول والأمن والحوكمة (14.7%): guardrails/ و approval/ و evals/redteam و docs/">
+    - **أهم نقطة في مشروعك:** أدوات المساعد تعمل بصلاحيات المستخدم، فحقن غير مباشر عبر مرفق مستخلص ملوث قد يجعل المساعد ينفّذ إجراءً (تحويل، اعتماد) نيابة عن مستخدم مخوّل. الحل: `approval/` يفرض موافقة صريحة على كل أداة مُعدِّلة، و`injection.ts` يعامل محتوى المرفقات كبيانات غير موثوقة.
+    - PII redaction قبل أي إرسال إلى Gemini (أسماء، إقامات، أرقام حسابات) وفق نظام حماية البيانات الشخصية.
+    - Model Card لنموذج المستخلصات + SHAP + تدقيق عدالة بين المقاولين.
+    - **القبول:** نسبة نجاح هجمات `evals/redteam` بعد الدفاعات أقل من 10%.
+  </Step>
+  <Step title="D7 — الأعمال (6.7%): docs/business-case.md و README">
+    - القيمة الكمية: ساعات موفرة في معالجة المستخلصات، تقليل التأخير، تقليل التصعيدات.
+    - KPIs بمواعيد قياس، TCO يشمل تكلفة Gemini شهريًا، kill criteria.
+    - **القبول:** ملخص تنفيذي 150 كلمة يفهمه مدير المزروعي بلا شرح.
+  </Step>
+</Steps>
+
+## ترتيب التنفيذ المقترح
+
+الترتيب مبني على الاعتماديات لا على الأوزان: لا يمكن قياس شيء قبل وجود tracing وevals.
+
+| الأسبوع | العمل | المجالات |
+|---|---|---|
+| 1 | `server/` بطبقات + zod + اختبارات + CI | D3 |
+| 2 | `prompts/` + tracing + `evals/golden` + `evals.yml` | D4, D2 |
+| 3 | RAG على سياسات الشركة + reranker + تقييم | D2 |
+| 4 | `approval/` + guardrails + `evals/redteam` | D6 |
+| 5 | `ml/` نموذج المستخلصات + تقييم + Model Card + SHAP | D1, D6 |
+| 6 | drift + retrain pipeline + runbook + canary deploy | D4 |
+| 7 | k6 + cache + router + `docs/architecture.md` | D5 |
+| 8 | business case + README + مراجعة شاملة | D7 |
+
+<Tip>
+**قاعدة واحدة:** كل أسبوع ينتهي بشيء قابل للقياس مدمج في `main`. لا تفتح المجال التالي قبل أن يمر الحالي عبر CI. هذا بحد ذاته تدريب على D4.
+</Tip>

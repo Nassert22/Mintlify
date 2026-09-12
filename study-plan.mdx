@@ -1,0 +1,101 @@
+---
+title: "خطة الدراسة (12 أسبوعًا)"
+description: "خطة موزونة حسب أوزان الاختبار، بمعدل 8–10 ساعات أسبوعيًا"
+---
+
+## مبدأ التوزيع
+
+الوقت موزّع تقريبًا حسب وزن كل مجال، مع أسبوعين للمشروع التطبيقي والمراجعة. إذا كانت نتيجة [التشخيص](/self-assessment) ضعيفة في مجال، خذ أسبوعًا إضافيًا منه من المجال الأقوى لديك.
+
+| المجال | الوزن | الأسابيع |
+|---|---|---|
+| 1. أسس البيانات و ML | 17.3% | 1–2 |
+| 2. AI / DL / GenAI | 16.7% | 3–4 |
+| 3. هندسة البرمجيات والتكامل | 14.0% | 5 |
+| 4. MLOps / LLMOps | 18.0% | 6–7 |
+| 5. المعمارية والبنية التحتية | 12.6% | 8 |
+| 6. المسؤول والأمن والحوكمة | 14.7% | 9 |
+| 7. الأعمال والممارسة | 6.7% | 10 (نصف أسبوع) |
+| المشروع التطبيقي | — | 10–11 |
+| المراجعة والمحاكاة | — | 12 |
+
+<Note>
+كل أسبوع يتبع نفس الإيقاع: **دراسة (40%) → تطبيق عملي (40%) → أسئلة واسترجاع نشط (20%)**. القراءة وحدها لا تنجح في مستوى Expert.
+</Note>
+
+## الخطة الأسبوعية
+
+<Steps>
+  <Step title="الأسبوع 1 — البيانات والتقييم">
+    - جودة البيانات، الأنواع، القيم المفقودة، الترميز، القياس (scaling).
+    - تقسيم البيانات الصحيح، منع التسريب، Cross-validation بأنواعه.
+    - **تطبيق:** خذ dataset غير متوازن (مثل credit card fraud) وابنِ pipeline بـ scikit-learn مع `Pipeline` + `ColumnTransformer` ثم قارن Accuracy مقابل PR-AUC.
+    - **أسئلة:** [المجال 1](/domains/01-data-ml-foundations) أسئلة التدريب.
+  </Step>
+  <Step title="الأسبوع 2 — خوارزميات ML والمقاييس">
+    - Bias/Variance، Regularization، الأشجار و Gradient Boosting، الانحدار اللوجستي كـ baseline.
+    - مقاييس التصنيف والانحدار والترتيب، Calibration، تحليل الأخطاء.
+    - **تطبيق:** أضف XGBoost/LightGBM على نفس المشروع، اضبط الـ threshold بناءً على تكلفة الخطأ، وارسم Calibration curve.
+  </Step>
+  <Step title="الأسبوع 3 — التعلم العميق">
+    - الشبكات العصبية، Backpropagation، المُحسِّنات، Normalization، Regularization (dropout, early stopping).
+    - CNN و RNN بإيجاز، ثم **Transformer** بعمق: attention، positional encoding، encoder/decoder.
+    - **تطبيق:** درّب نموذج تصنيف نصوص صغيرًا بـ PyTorch، ثم fine-tune نموذج BERT صغيرًا بـ Hugging Face.
+  </Step>
+  <Step title="الأسبوع 4 — الذكاء التوليدي">
+    - LLMs: tokenization، pretraining/SFT/RLHF، decoding (temperature, top-p)، context window.
+    - Prompt engineering، RAG (chunking، embeddings، vector DB، reranking)، PEFT (LoRA/QLoRA)، Agents و tool use.
+    - **تطبيق:** ابنِ RAG على مستندات داخلية وقيّمه بـ RAGAS أو ما يماثلها. راجع [المجال 2](/domains/02-core-ai-deep-learning-genai).
+  </Step>
+  <Step title="الأسبوع 5 — هندسة البرمجيات">
+    - تصميم API لخدمة ML (FastAPI)، Pydantic، structured outputs، إدارة الإعدادات والأسرار.
+    - الاختبارات (unit/integration/evals)، Docker، CI، Git workflows، مراجعة الكود.
+    - **تطبيق:** غلّف نموذج الأسبوع 2 و RAG الأسبوع 4 في خدمة FastAPI بـ Dockerfile + GitHub Actions يشغّل الاختبارات. راجع [المجال 3](/domains/03-ai-software-engineering).
+  </Step>
+  <Step title="الأسبوع 6 — MLOps">
+    - Experiment tracking و Model registry (MLflow)، Feature store، Data validation، Pipelines (Airflow/Kubeflow/Prefect).
+    - استراتيجيات النشر (shadow/canary/blue-green)، Rollback، Versioning للبيانات والنماذج.
+    - **تطبيق:** أضف MLflow لتتبع التجارب وتسجيل النموذج، وابنِ pipeline إعادة تدريب.
+  </Step>
+  <Step title="الأسبوع 7 — LLMOps والموثوقية">
+    - مراقبة النماذج: drift، جودة المخرجات، التكلفة، الزمن؛ Observability للـ LLM (tracing، prompt versioning، evals مستمرة).
+    - SLOs، On-call، Incident response لأنظمة ML، Guardrails.
+    - **تطبيق:** أضف tracing (Langfuse/OpenTelemetry) و dashboard بسيطًا للـ drift. راجع [المجال 4](/domains/04-mlops-llmops).
+  </Step>
+  <Step title="الأسبوع 8 — المعمارية والأداء">
+    - أنماط المعمارية (batch/online/streaming inference)، Microservices مقابل Monolith لـ ML، Caching، Queues.
+    - GPU/CPU، Quantization، Distillation، Batching، KV cache، vLLM/TensorRT، Autoscaling، Cost optimization.
+    - **تطبيق:** قِس latency و throughput لخدمتك تحت حمل (Locust/k6)، ثم طبّق تحسينين وقارن. راجع [المجال 5](/domains/05-architecture-infrastructure).
+  </Step>
+  <Step title="الأسبوع 9 — المسؤول والأمن والحوكمة">
+    - Fairness، Explainability (SHAP/LIME)، Privacy (PDPL، anonymization، differential privacy مفهوميًا).
+    - OWASP Top 10 for LLM Applications، Prompt injection، Data poisoning، Model theft، Supply chain للنماذج.
+    - الحوكمة: مبادئ أخلاقيات الذكاء الاصطناعي من SDAIA، NIST AI RMF، ISO/IEC 42001، Model Cards.
+    - **تطبيق:** اكتب Model Card ومصفوفة مخاطر لمشروعك وأضف guardrails للمدخلات والمخرجات. راجع [المجال 6](/domains/06-responsible-ai-security).
+  </Step>
+  <Step title="الأسبوع 10 — الأعمال + بداية المشروع">
+    - Business case، ROI، KPIs، إدارة أصحاب المصلحة، التواصل التقني لغير التقنيين، Agile لمشاريع ML.
+    - **تطبيق:** اكتب وثيقة Business Case لمشروعك، ثم ابدأ [المشروع التطبيقي](/capstone). راجع [المجال 7](/domains/07-business-professional-practice).
+  </Step>
+  <Step title="الأسبوع 11 — إكمال المشروع التطبيقي">
+    أكمل المشروع بمعايير القبول المذكورة في صفحته. اطلب مراجعة من زميل أو انشره على GitHub بوثائق واضحة.
+  </Step>
+  <Step title="الأسبوع 12 — المراجعة والمحاكاة">
+    - أعد [الاختبار التشخيصي](/self-assessment) وقارن النتائج.
+    - حل كل أسئلة التدريب في المجالات السبعة مجددًا في جلسة واحدة موقوتة.
+    - راجع [استراتيجية الاختبار](/exam-day).
+  </Step>
+</Steps>
+
+## نموذج جلسة دراسة يومية (90 دقيقة)
+
+| الوقت | النشاط |
+|---|---|
+| 10 د | استرجاع نشط: أجب عن 3 أسئلة من جلسة أمس دون مراجعة |
+| 35 د | دراسة مفهوم جديد (اقرأ ثم اشرحه لنفسك بصوت عالٍ أو اكتبه) |
+| 35 د | تطبيق عملي بالكود |
+| 10 د | اكتب 3 أسئلة لنفسك من ما تعلمته اليوم (لتستخدمها غدًا) |
+
+<Tip>
+**Interleaving:** في الأسابيع 6 فما بعد، خصص 15 دقيقة يوميًا لمراجعة سؤال من مجال سابق. النسيان يبدأ بعد أسبوع، والمراجعة المتباعدة هي ما يثبّت المعلومة إلى يوم الاختبار.
+</Tip>

@@ -1,0 +1,147 @@
+---
+title: "2. أساسيات الذكاء الاصطناعي والتعلم العميق والذكاء التوليدي"
+description: "الوزن: 16.7% — من الشبكة العصبية إلى LLM و RAG و Agents"
+---
+
+<Info>**الوزن:** 16.7% | **الأسابيع:** 3–4 | **نمط الأسئلة المتوقع:** فهم آليات Transformer، اختيار بين RAG/Fine-tuning/Prompting، تشخيص مشاكل تدريب وتوليد.</Info>
+
+## أهداف التعلم
+
+1. شرح آلية تدريب شبكة عصبية (forward، loss، backprop، optimizer) وتشخيص مشاكل التدريب.
+2. شرح معمارية Transformer وسبب هيمنتها.
+3. اختيار الاستراتيجية الصحيحة لتكييف LLM مع مهمة: Prompting، RAG، Fine-tuning، أو مزيج.
+4. تصميم نظام RAG وتقييمه.
+
+## الموضوعات الأساسية
+
+<AccordionGroup>
+  <Accordion title="أساسيات الشبكات العصبية">
+    - **Forward pass** → **Loss** (Cross-entropy للتصنيف، MSE للانحدار) → **Backpropagation** (قاعدة السلسلة) → **Optimizer** (SGD، Momentum، Adam/AdamW).
+    - **Learning rate** أهم hyperparameter: كبير جدًا = تذبذب/انفجار، صغير جدًا = بطء. استخدم warmup + schedulers (cosine، one-cycle).
+    - **Vanishing/Exploding gradients**: العلاج بـ ReLU وتوابعه، Residual connections، Normalization (Batch/Layer)، Gradient clipping.
+    - **Regularization**: Dropout، Weight decay، Data augmentation، Early stopping.
+    - **Batch size**: أكبر = تدرجات أدق وأسرع على GPU لكن قد يعمّم أسوأ ويحتاج learning rate أعلى.
+  </Accordion>
+  <Accordion title="المعماريات الكلاسيكية">
+    - **CNN**: الالتفاف يشارك الأوزان ويلتقط الأنماط المحلية. Pooling يقلل الأبعاد. Transfer learning من ImageNet هو الافتراضي في الرؤية.
+    - **RNN/LSTM/GRU**: تعالج التسلسلات خطوة بخطوة. مشكلتها: بطء (لا توازي) وذاكرة قصيرة. Transformer حلّ الاثنين.
+    - **Autoencoders / VAE / GAN / Diffusion**: نماذج توليدية. Diffusion هي الحالة الحالية للصور (استقرار تدريب أفضل من GAN).
+  </Accordion>
+  <Accordion title="Transformer بعمق">
+    - **Self-attention**: لكل رمز Query، Key، Value. الوزن = softmax(QKᵀ/√d_k). يسمح لكل رمز بالنظر إلى كل الرموز مباشرة (لا مسافة).
+    - **Multi-head**: رؤوس متعددة تتعلم أنواع علاقات مختلفة.
+    - **Positional encoding**: لأن الانتباه لا يعرف الترتيب. الأساليب الحديثة: RoPE، ALiBi.
+    - **Encoder-only** (BERT: فهم/تصنيف)، **Decoder-only** (GPT، Llama: توليد)، **Encoder-Decoder** (T5: ترجمة/تلخيص).
+    - **التعقيد**: O(n²) في طول التسلسل. من هنا تأتي حدود context window وابتكارات مثل Flash Attention و GQA.
+  </Accordion>
+  <Accordion title="النماذج اللغوية الكبيرة (LLMs)">
+    - **Tokenization** (BPE/SentencePiece): العربية تُقطّع إلى رموز أكثر من الإنجليزية في كثير من النماذج، فالتكلفة والسياق يستهلكان أسرع.
+    - **مراحل التدريب**: Pretraining (توقع الرمز التالي) → SFT (Supervised Fine-Tuning على أمثلة تعليمات) → Alignment (RLHF / DPO).
+    - **Decoding**: Greedy، Beam search، Sampling مع temperature/top-k/top-p. temperature=0 لا يضمن حتمية كاملة على كل الأنظمة.
+    - **Scaling laws** و **Emergent abilities** مفهوميًا.
+    - **Hallucination**: النموذج يولّد نصًا محتملًا لا صحيحًا بالضرورة. التخفيف: RAG، grounding، structured outputs، تقييم faithfulness.
+    - **Embeddings**: تمثيلات متجهية للمعنى. مقياس التشابه (cosine). نماذج embedding منفصلة عادةً عن نماذج التوليد.
+  </Accordion>
+  <Accordion title="تكييف LLM مع مهمتك: Prompting vs RAG vs Fine-tuning">
+    | الحاجة | الحل | لماذا |
+    |---|---|---|
+    | تغيير صيغة/أسلوب الإجابة، مهام عامة | **Prompt engineering** (few-shot، CoT، system prompt) | الأرخص والأسرع، لا تدريب |
+    | معرفة خاصة/متغيرة، الحاجة للاستشهاد | **RAG** | تحديث فوري، تقليل الهلوسة، قابلية التتبع |
+    | مهارة/سلوك متخصص ثابت، تقليل طول الـ prompt، نطاق لغوي خاص | **Fine-tuning** (LoRA/QLoRA غالبًا) | يغيّر السلوك لا الحقائق |
+    | كل ما سبق | **مزيج**: FT للسلوك + RAG للمعرفة | الشائع في الإنتاج |
+
+    **PEFT**: LoRA يضيف مصفوفات منخفضة الرتبة؛ QLoRA يكمّم النموذج الأساسي إلى 4-bit أثناء التدريب. **Catastrophic forgetting** خطر في Full FT.
+  </Accordion>
+  <Accordion title="تصميم RAG">
+    - **Ingestion**: تنظيف → **Chunking** (حجم 256–1024 رمز مع overlap؛ chunking بحسب البنية أفضل من الثابت) → Embedding → تخزين في Vector DB (pgvector، Qdrant، Milvus، Pinecone).
+    - **Retrieval**: Dense (embeddings) + Sparse (BM25) = **Hybrid** أفضل عادة. **Reranker** (cross-encoder) بعد الاسترجاع الأولي يرفع الدقة كثيرًا.
+    - **Generation**: system prompt يفرض الالتزام بالسياق + الاستشهاد بالمصدر + "لا أعلم" عند غياب الدليل.
+    - **التقييم**: Context precision/recall، Faithfulness، Answer relevance (أطر مثل RAGAS)، إضافة إلى latency وتكلفة.
+    - **أخطاء شائعة**: chunks كبيرة جدًا تُضعف الاسترجاع، نموذج embedding لا يدعم العربية جيدًا، عدم تحديث الفهرس، تجاهل metadata filtering.
+  </Accordion>
+  <Accordion title="Agents و Tool Use">
+    - Agent = LLM + أدوات + حلقة (خطة → فعل → ملاحظة). أنماط: ReAct، Plan-and-Execute، Multi-agent.
+    - **Function calling / Structured outputs** هي الأساس التقني.
+    - المخاطر: حلقات لا نهائية، تكلفة، إجراءات غير مقصودة. الضوابط: حد أقصى للخطوات، صلاحيات دنيا للأدوات، موافقة بشرية على الإجراءات المؤثرة.
+    - **MCP (Model Context Protocol)** كمعيار لربط النماذج بالأدوات والبيانات.
+  </Accordion>
+</AccordionGroup>
+
+## ما يُسقط المرشحين في هذا المجال
+
+<Warning>
+- الاعتقاد أن Fine-tuning يحقن حقائق جديدة بشكل موثوق (RAG أفضل لذلك).
+- الخلط بين Encoder و Decoder ومتى يُستخدم كل منهما.
+- عدم معرفة سبب √d_k أو سبب Positional encoding.
+- تصميم RAG بدون تقييم، ثم عزو الفشل للنموذج بينما المشكلة في الاسترجاع (غالبًا 70% من مشاكل RAG في Retrieval لا Generation).
+- تجاهل تأثير tokenization على العربية في التكلفة والسياق.
+</Warning>
+
+## تمرين عملي
+
+<Steps>
+  <Step title="Fine-tune نموذج تصنيف عربي">
+    استخدم Hugging Face `transformers` مع نموذج مثل `aubmindlab/bert-base-arabertv2` على dataset تصنيف نصوص عربية. تتبع loss التدريب والتحقق، وجرّب learning rates مختلفة ولاحظ الأثر.
+  </Step>
+  <Step title="ابنِ RAG كاملًا">
+    ```python
+    # Minimal RAG skeleton — replace components with your stack of choice
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
+
+    embedder = SentenceTransformer("intfloat/multilingual-e5-base")  # Arabic-capable
+
+    def chunk(text, size=500, overlap=100):
+        return [text[i:i+size] for i in range(0, len(text), size - overlap)]
+
+    docs = [...]  # your internal documents
+    chunks = [c for d in docs for c in chunk(d)]
+    index = embedder.encode(chunks, normalize_embeddings=True)
+
+    def retrieve(query, k=5):
+        q = embedder.encode([query], normalize_embeddings=True)[0]
+        scores = index @ q
+        top = np.argsort(-scores)[:k]
+        return [chunks[i] for i in top]
+
+    def answer(query, llm):
+        ctx = "\n\n".join(retrieve(query))
+        prompt = (
+            "أجب فقط من السياق التالي. إن لم تجد الإجابة قل: لا أعلم.\n"
+            f"السياق:\n{ctx}\n\nالسؤال: {query}"
+        )
+        return llm(prompt)
+    ```
+  </Step>
+  <Step title="قيّمه">
+    اكتب 30 سؤالًا بإجابات ذهبية. قِس Context recall (هل المقطع الصحيح ضمن أفضل 5؟) و Faithfulness (LLM-as-judge). ثم أضف BM25 hybrid و reranker وقارن.
+  </Step>
+</Steps>
+
+## أسئلة تدريب
+
+<AccordionGroup>
+  <Accordion title="س1. loss التدريب ينخفض ثم يصبح NaN فجأة. ما السبب الأرجح والعلاج؟">
+    **Exploding gradients** أو learning rate مرتفع. العلاج: gradient clipping، خفض learning rate، التحقق من normalization، والتأكد من عدم وجود قسمة على صفر أو log(0) في الـ loss. مع mixed precision تحقق من loss scaling.
+  </Accordion>
+  <Accordion title="س2. RAG يعيد إجابات صحيحة لغويًا لكن غير مرتبطة بالمستندات. أين تبحث أولًا؟">
+    في **الاسترجاع**: افحص المقاطع المسترجعة يدويًا لعينة أسئلة. الأسباب الشائعة: نموذج embedding ضعيف في اللغة، chunks كبيرة/مقطوعة بشكل سيئ، غياب reranking، أو الاستعلام يحتاج إعادة صياغة (query rewriting). لا تغيّر نموذج التوليد قبل التأكد أن السياق الصحيح يصل إليه.
+  </Accordion>
+  <Accordion title="س3. لماذا يُستخدم Layer Normalization بدل Batch Normalization في Transformers؟">
+    BatchNorm يعتمد على إحصاءات الدفعة، وهي غير مستقرة مع تسلسلات متغيرة الطول ودفعات صغيرة، وتُعقّد الاستدلال. LayerNorm يُطبّع عبر بُعد الميزات لكل رمز مستقلًا، فلا يعتمد على الدفعة ويعمل بنفس الطريقة في التدريب والاستدلال.
+  </Accordion>
+  <Accordion title="س4. متى تختار نموذجًا مفتوح المصدر يُستضاف ذاتيًا بدل API تجاري؟">
+    عندما تكون **سيادة البيانات/الامتثال** شرطًا (بيانات حساسة لا تخرج)، أو الحجم كبيرًا بحيث تكون الاستضافة الذاتية أرخص، أو تحتاج fine-tuning عميقًا أو latency محددًا. مقابل ذلك تتحمل عبء التشغيل والأمن والتحديث.
+  </Accordion>
+  <Accordion title="س5. ما الفرق بين SFT و RLHF/DPO في ما يعلّمه للنموذج؟">
+    **SFT** يعلّم النموذج تقليد إجابات نموذجية (صيغة وسلوك أساسي). **RLHF/DPO** يعلّمه التفضيل بين إجابات (أيهما أفضل) وفق أحكام بشرية، فيحسّن المواءمة (helpfulness/harmlessness) بشكل لا تُغطيه الأمثلة المباشرة. DPO يحقق ذلك دون نموذج مكافأة منفصل.
+  </Accordion>
+</AccordionGroup>
+
+## مراجع مختارة
+
+- Vaswani et al., *Attention Is All You Need* (2017) — اقرأه مع شرح Jay Alammar *The Illustrated Transformer*.
+- Hugging Face *LLM Course* و *NLP Course*.
+- Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks* (2020).
+- Hu et al., *LoRA: Low-Rank Adaptation of Large Language Models* (2021).
+- Andrej Karpathy, *Neural Networks: Zero to Hero* (سلسلة فيديو).

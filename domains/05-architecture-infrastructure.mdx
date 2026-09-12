@@ -1,0 +1,115 @@
+---
+title: "5. المعمارية والبنية التحتية والأداء وقابلية التوسع"
+description: "الوزن: 12.6% — تصميم أنظمة ذكاء اصطناعي تتحمل الحمل وتبقى ضمن الميزانية"
+---
+
+<Info>**الوزن:** 12.6% | **الأسبوع:** 8 | **نمط الأسئلة المتوقع:** اختيار نمط استدلال، تحسين latency/throughput/تكلفة، أسئلة GPU وذاكرة، autoscaling.</Info>
+
+## أهداف التعلم
+
+1. اختيار نمط الاستدلال (batch/online/streaming) المناسب لمتطلبات الأعمال.
+2. تشخيص عنق الزجاجة في خدمة استدلال وتحسينه بأسلوب مقاس.
+3. تقدير متطلبات الذاكرة والحوسبة لنموذج معين.
+4. تصميم بنية قابلة للتوسع مع ضبط التكلفة.
+
+## الموضوعات الأساسية
+
+<AccordionGroup>
+  <Accordion title="أنماط الاستدلال">
+    | النمط | الخصائص | الاستخدام |
+    |---|---|---|
+    | **Batch** | تنبؤات دورية تُخزَّن مسبقًا | توصيات ليلية، تسجيل مخاطر شهري؛ أرخص وأبسط |
+    | **Online (real-time)** | طلب/استجابة، latency ms | كشف احتيال عند الدفع، chatbots |
+    | **Streaming** | معالجة أحداث مستمرة (Kafka/Flink) | كشف شذوذ في تدفق أجهزة |
+    | **Edge/On-device** | الاستدلال على الجهاز | خصوصية، اتصال ضعيف، latency صفري |
+
+    القاعدة: **ابدأ بـ batch إن أمكن**. Online أغلى تشغيليًا وأعقد مراقبة.
+  </Accordion>
+  <Accordion title="مكونات البنية">
+    - **Compute**: CPU (نماذج جدولية، استدلال خفيف)، GPU (DL/LLM)، TPU/مسرّعات متخصصة. اعرف الفرق بين memory-bound و compute-bound: استدلال LLM في التوليد **memory-bandwidth bound** غالبًا.
+    - **Serving frameworks**: TorchServe، Triton Inference Server (متعدد الأطر، dynamic batching)، vLLM/TGI/TensorRT-LLM للـ LLM، BentoML/Ray Serve للتغليف.
+    - **Orchestration**: Kubernetes مع GPU operators، HPA/KEDA للتوسع، node pools مخصصة.
+    - **Storage**: Object storage للأوزان والبيانات، Vector DB للـ RAG، Feature store، Cache (Redis).
+    - **Networking**: API gateway، load balancer، service mesh عند تعدد الخدمات.
+  </Accordion>
+  <Accordion title="تحسين أداء الاستدلال">
+    - **Latency vs Throughput**: batching يرفع throughput على حساب latency الفردي. **Dynamic/Continuous batching** يوازن بينهما.
+    - **Quantization**: FP32 → FP16/BF16 (شبه مجاني) → INT8 → INT4 (GPTQ، AWQ، GGUF). قِس الدقة بعد كل خطوة.
+    - **Distillation**: نموذج صغير يتعلم من كبير. **Pruning**: حذف أوزان غير مهمة.
+    - **Compilation**: ONNX Runtime، TensorRT، torch.compile.
+    - **KV Cache** في LLM: يوفر إعادة حساب الانتباه لكنه يستهلك الذاكرة خطيًا مع طول السياق × عدد الطلبات. **PagedAttention** (vLLM) يدير ذلك بكفاءة. **Prefix caching** للـ system prompts المشتركة.
+    - **Speculative decoding**: نموذج صغير يقترح والكبير يتحقق، يسرّع التوليد.
+    - **Caching على مستوى التطبيق**: exact-match و semantic cache للاستعلامات المتكررة.
+  </Accordion>
+  <Accordion title="تقدير الذاكرة (قاعدة سريعة)">
+    - أوزان النموذج ≈ عدد المعاملات × بايت لكل معامل. مثال: 7B معامل × 2 بايت (FP16) ≈ **14 GB**، بـ INT4 ≈ 3.5 GB.
+    - **التدريب** يحتاج تقريبًا 3–4× حجم الأوزان (تدرجات + حالات Adam) إضافة للتنشيطات. لهذا LoRA/QLoRA يفتحان التدريب على GPU واحد.
+    - **KV cache لكل رمز** ≈ 2 × عدد الطبقات × hidden size × بايت. لنموذج 7B بسياق 4k وعدة طلبات متزامنة قد يتجاوز حجم الأوزان.
+  </Accordion>
+  <Accordion title="قابلية التوسع والتوفر العالي">
+    - **Horizontal scaling** للخدمات عديمة الحالة؛ النموذج المحمّل في الذاكرة يجعل بدء النسخة الجديدة بطيئًا (cold start)، فاستخدم warm pools و readiness probes.
+    - **Autoscaling** على مقاييس مناسبة: طول الطابور أو GPU utilization، لا CPU فقط.
+    - **Multi-AZ/Region** للتوفر، مع مراعاة سيادة البيانات (البيانات داخل المملكة عند الاشتراط).
+    - **Queue-based load leveling** لامتصاص الذروات.
+    - **Multi-model serving**: عدة نماذج على GPU واحد (Triton) لرفع الاستغلال.
+  </Accordion>
+  <Accordion title="التكلفة (FinOps للذكاء الاصطناعي)">
+    - أكبر مصادر الهدر: GPU خامل، نماذج أكبر من الحاجة، إعادة حساب يمكن تخزينه، سياقات طويلة بلا داع.
+    - أدوات الضبط: right-sizing، spot/preemptible للتدريب، scale-to-zero للخدمات منخفضة الاستخدام، **model routing** (نموذج صغير للطلبات البسيطة)، حدود tokens، مراقبة تكلفة/طلب.
+    - قارن **TCO**: API تجاري (تكلفة متغيرة، صفر تشغيل) مقابل استضافة ذاتية (تكلفة ثابتة + فريق) عند حجم الطلبات المتوقع.
+  </Accordion>
+</AccordionGroup>
+
+## ما يُسقط المرشحين في هذا المجال
+
+<Warning>
+- التحسين بلا قياس: غيّر شيئًا واحدًا، قِس p95 و throughput، ثم الخطوة التالية.
+- افتراض أن GPU أكبر تحل مشكلة latency بينما المشكلة في تسلسل الاستدعاءات (RAG بثلاث قفزات شبكية).
+- نسيان أن KV cache يستهلك ذاكرة أكثر من الأوزان عند التزامن العالي.
+- Autoscaling على CPU لخدمة GPU-bound.
+- اختيار Online inference لحالة يكفيها batch.
+</Warning>
+
+## تمرين عملي
+
+<Steps>
+  <Step title="قِس الأساس">
+    شغّل خدمة FastAPI من الأسبوع 5 واختبرها بـ k6 أو Locust: 50 مستخدمًا متزامنًا لمدة دقيقتين. سجّل p50/p95/p99 و RPS و error rate.
+  </Step>
+  <Step title="حسّن مرتين وقارن">
+    (1) أضف caching لنتائج الطلبات المتطابقة. (2) شغّل عدة workers (uvicorn --workers) أو dynamic batching. أعد القياس بعد كل تغيير. وثّق النتائج في جدول.
+  </Step>
+  <Step title="استدلال LLM محلي">
+    شغّل نموذجًا مفتوحًا (مثل 7B بـ INT4) عبر vLLM أو llama.cpp. قارن tokens/sec و latency لأول رمز مع وبدون batching، وقِس أثر طول السياق على الذاكرة.
+  </Step>
+  <Step title="تصميم على الورق">
+    ارسم معمارية لخدمة مساعد ذكي داخلي لـ 5,000 موظف مع ذروة 200 طلب/ثانية، بيانات حساسة يجب أن تبقى داخل المملكة، وميزانية محدودة. حدد كل مكون ومبرر اختياره.
+  </Step>
+</Steps>
+
+## أسئلة تدريب
+
+<AccordionGroup>
+  <Accordion title="س1. خدمة LLM بـ p95 = 6s. التتبع يُظهر: retrieval 300ms، reranking 200ms، التوليد 5.2s. ما أول تحسين؟">
+    التوليد هو عنق الزجاجة. خيارات مرتبة: **Streaming** (يحسّن الزمن المُدرَك فورًا)، تقليل max_tokens والسياق المُرسل، نموذج أصغر/مكمّم، continuous batching على vLLM، speculative decoding. تحسين الاسترجاع هنا لا يُغيّر شيئًا يُذكر.
+  </Accordion>
+  <Accordion title="س2. GPU utilization 15% مع latency مرتفع. ما التفسير المحتمل؟">
+    الخدمة ليست GPU-bound: على الأرجح عنق الزجاجة في **المعالجة المسبقة على CPU**، أو **I/O** (تحميل بيانات، استدعاءات شبكة)، أو **batch size = 1** بلا batching، أو Python GIL مع worker واحد. الحل: profiling ثم batching/async/زيادة workers.
+  </Accordion>
+  <Accordion title="س3. متى تختار Triton Inference Server بدل FastAPI مباشرة؟">
+    عندما تحتاج dynamic batching، خدمة عدة نماذج/أطر على نفس GPU، model ensembles/pipelines داخل الخادم، ومقاييس أداء جاهزة. FastAPI يكفي لنموذج واحد خفيف أو كطبقة أعمال أمام Triton.
+  </Accordion>
+  <Accordion title="س4. كيف تقلل تكلفة نظام LLM بنسبة 50% دون تدهور ملحوظ؟">
+    (1) **Routing**: نموذج صغير للطلبات البسيطة والكبير للمعقدة، (2) **Caching** exact + semantic، (3) تقصير الـ prompts وإزالة السياق غير المستخدم، (4) **Prefix caching** للـ system prompt، (5) quantization عند الاستضافة الذاتية، (6) حدود max_tokens. قِس الجودة بالـ evals بعد كل خطوة.
+  </Accordion>
+  <Accordion title="س5. كم GPU ذاكرة تحتاج تقريبًا لتقديم نموذج 13B بـ FP16 مع سياق طويل وعدة مستخدمين؟">
+    الأوزان ≈ 26 GB، ويجب إضافة هامش كبير للـ KV cache والتنشيطات (قد يصل 30–50% أو أكثر حسب التزامن وطول السياق). عمليًا GPU بـ 40 GB على الأقل، أو 80 GB للتزامن العالي، أو تكميم إلى INT8/INT4 لتقليل الأوزان إلى 13/6.5 GB.
+  </Accordion>
+</AccordionGroup>
+
+## مراجع مختارة
+
+- Chip Huyen, *AI Engineering* (2025) — فصول Inference Optimization.
+- وثائق vLLM (PagedAttention) و NVIDIA Triton.
+- Kwon et al., *Efficient Memory Management for Large Language Model Serving with PagedAttention* (2023).
+- Martin Kleppmann, *Designing Data-Intensive Applications* (الأسس).

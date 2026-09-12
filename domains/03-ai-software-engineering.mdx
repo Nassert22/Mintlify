@@ -1,0 +1,146 @@
+---
+title: "3. هندسة برمجيات الذكاء الاصطناعي والتكامل"
+description: "الوزن: 14.0% — تحويل النموذج إلى خدمة موثوقة قابلة للاختبار والتكامل"
+---
+
+<Info>**الوزن:** 14.0% | **الأسبوع:** 5 | **نمط الأسئلة المتوقع:** تصميم API، استراتيجيات اختبار لأنظمة غير حتمية، تكامل مع أنظمة قائمة، إدارة الأسرار والإعدادات.</Info>
+
+## أهداف التعلم
+
+1. تصميم API لخدمة استدلال بعقود واضحة ومعالجة أخطاء صحيحة.
+2. بناء استراتيجية اختبار تفصل المنطق الحتمي عن استدعاءات النماذج.
+3. تغليف النموذج في حاوية وتشغيله عبر CI/CD.
+4. دمج مكونات الذكاء الاصطناعي مع أنظمة المؤسسة القائمة (ERP/CRM/قواعد بيانات) بأمان.
+
+## الموضوعات الأساسية
+
+<AccordionGroup>
+  <Accordion title="تصميم API لخدمات ML/LLM">
+    - **REST** (FastAPI هو المعيار الفعلي في Python) للطلبات المتزامنة، **gRPC** للأداء العالي بين الخدمات، **Streaming** (SSE/WebSocket) لمخرجات LLM المتدرجة، **Async/Queue** (Celery، RabbitMQ، Kafka) للمهام الطويلة.
+    - **العقد**: Pydantic models للمدخلات والمخرجات، versioning للـ API (`/v1/predict`)، رسائل خطأ محددة (400 للمدخلات، 422 للتحقق، 429 للحد، 503 للتحميل الزائد).
+    - **Idempotency** للطلبات المكررة، **Correlation IDs** للتتبع، **Timeouts** على كل استدعاء خارجي.
+    - **Structured outputs** من LLM: JSON schema / function calling + validation. لا تعتمد على regex لتحليل نص حر.
+  </Accordion>
+  <Accordion title="جودة الكود والهيكلة">
+    - فصل الطبقات: `api/` (نقل) ← `services/` (منطق) ← `models/` (استدلال) ← `data/` (وصول). النموذج يُحمّل مرة واحدة عند بدء التطبيق لا في كل طلب.
+    - Type hints، linting (ruff)، formatting (black)، pre-commit hooks.
+    - **إدارة الإعدادات**: متغيرات بيئة + `pydantic-settings`. **الأسرار** في Vault/Secrets Manager، لا في الكود ولا في صورة Docker.
+    - **إدارة التبعيات**: تثبيت الإصدارات (lockfile)، بيئات معزولة، فحص الثغرات (pip-audit).
+  </Accordion>
+  <Accordion title="الاختبارات لأنظمة الذكاء الاصطناعي">
+    | المستوى | ماذا يختبر | كيف |
+    |---|---|---|
+    | Unit | المعالجة، التحويلات، منطق الأعمال | pytest مع mock للنموذج |
+    | Contract | شكل استجابة النموذج/الـ API | schema validation |
+    | Integration | التكامل مع DB/queue/نموذج حقيقي | حاويات اختبار (testcontainers) |
+    | Model/Eval | جودة المخرجات | مجموعة تقييم ذهبية + عتبات إحصائية |
+    | Load | الأداء تحت ضغط | Locust / k6 |
+    | Regression | عدم تدهور بعد تحديث | تشغيل evals في CI على كل تغيير prompt/نموذج |
+
+    **المبدأ**: الاختبار الوحدوي لا يستدعي LLM حقيقيًا أبدًا. الـ evals تعمل منفصلة (nightly أو عند تغيير prompt) لأنها بطيئة ومكلفة واحتمالية.
+  </Accordion>
+  <Accordion title="الحاويات و CI/CD">
+    - **Dockerfile** متعدد المراحل: مرحلة بناء (تثبيت التبعيات) ومرحلة تشغيل خفيفة. أوزان النموذج تُحمّل من registry/object storage لا تُنسخ داخل الصورة عادةً.
+    - **CI**: lint → unit tests → build image → security scan → integration tests. **CD**: نشر تدريجي مع gates.
+    - **Reproducibility**: نفس الكود + نفس البيانات + نفس التبعيات + نفس seed = نفس النتيجة. وثّق كل شيء.
+  </Accordion>
+  <Accordion title="التكامل مع أنظمة المؤسسة">
+    - أنماط: **API Gateway**، **Event-driven** (نشر تنبؤات كأحداث)، **Batch jobs** (تنبؤات ليلية تُكتب في DB)، **Sidecar** للاستدلال بجانب خدمة قائمة.
+    - التكامل مع ERP/CRM: عبر APIs الرسمية أو طبقة تكامل (iPaaS)، مع مراعاة حدود المعدل والمصادقة (OAuth2) والصلاحيات.
+    - **Data contracts** بين المنتج والمستهلك للبيانات تمنع كسر الـ pipeline عند تغيير schema.
+    - **Feature/Prediction store** لتوحيد الميزات بين التدريب والاستدلال (منع training/serving skew).
+  </Accordion>
+  <Accordion title="مبادئ الموثوقية على مستوى الكود">
+    - Retries مع **exponential backoff + jitter** للأخطاء العابرة فقط (لا تعيد 400).
+    - **Circuit breaker** للتبعيات الخارجية (مزود LLM).
+    - **Fallback**: نموذج أصغر، استجابة مخزنة، أو رسالة واضحة.
+    - **Caching**: للطلبات المتكررة (semantic cache للـ LLM) مع سياسة انتهاء.
+    - **Observability**: logs مهيكلة (JSON)، metrics (latency p50/p95/p99، error rate، tokens)، traces.
+  </Accordion>
+</AccordionGroup>
+
+## ما يُسقط المرشحين في هذا المجال
+
+<Warning>
+- تحميل النموذج داخل دالة الطلب (يقتل الأداء).
+- اختبارات تستدعي LLM حقيقيًا فتصبح flaky وبطيئة ومكلفة.
+- وضع مفاتيح API في الكود أو في صورة Docker.
+- إعادة المحاولة (retry) على كل الأخطاء بلا تمييز وبلا backoff، فتفاقم الضغط على الخدمة المتعثرة.
+- تجاهل training/serving skew: معالجة الميزات بكود مختلف في التدريب والاستدلال.
+</Warning>
+
+## تمرين عملي
+
+<Steps>
+  <Step title="خدمة FastAPI">
+    ```python
+    from contextlib import asynccontextmanager
+    from fastapi import FastAPI, HTTPException
+    from pydantic import BaseModel, Field
+    import joblib
+
+    MODEL = {}
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        MODEL["clf"] = joblib.load("model.joblib")  # load once at startup
+        yield
+        MODEL.clear()
+
+    app = FastAPI(lifespan=lifespan)
+
+    class PredictIn(BaseModel):
+        amount: float = Field(gt=0)
+        merchant_category: str
+        hour: int = Field(ge=0, le=23)
+
+    class PredictOut(BaseModel):
+        fraud_probability: float
+        model_version: str
+
+    @app.post("/v1/predict", response_model=PredictOut)
+    def predict(x: PredictIn):
+        try:
+            p = MODEL["clf"].predict_proba([[x.amount, x.merchant_category, x.hour]])[0][1]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="inference_failed") from e
+        return PredictOut(fraud_probability=float(p), model_version="1.0.0")
+    ```
+  </Step>
+  <Step title="اختبارات">
+    اكتب اختبار وحدة لـ `/v1/predict` مع mock للنموذج، واختبار تحقق لمدخلات خاطئة (يجب أن يعيد 422)، واختبار عقد على شكل الاستجابة.
+  </Step>
+  <Step title="Docker + CI">
+    Dockerfile متعدد المراحل، ثم GitHub Actions workflow يشغّل ruff + pytest + build. أضف خطوة `pip-audit`.
+  </Step>
+  <Step title="أضف LLM بأمان">
+    نقطة نهاية `/v1/explain` تستدعي LLM لشرح التنبؤ بـ structured output (Pydantic)، مع timeout و retry بـ backoff و fallback نصي ثابت عند الفشل.
+  </Step>
+</Steps>
+
+## أسئلة تدريب
+
+<AccordionGroup>
+  <Accordion title="س1. طلب من LLM يستغرق 20 ثانية والعميل يحتاج استجابة فورية. ما الحلول المعمارية؟">
+    (1) **Streaming** لإظهار النص تدريجيًا، (2) **نمط غير متزامن**: إرجاع job id فورًا والنتيجة عبر polling/webhook، (3) تقليل الطلب (نموذج أصغر، prompt أقصر، max_tokens)، (4) caching للطلبات المشابهة. الاختيار حسب تجربة المستخدم المطلوبة.
+  </Accordion>
+  <Accordion title="س2. غيّر فريق البيانات اسم عمود في المصدر فتوقف الاستدلال ليلًا. كيف تمنع تكرار ذلك؟">
+    **Data contract** موثق ومختبر (schema validation عند الإدخال)، اختبارات تكامل على عينة حقيقية في CI، مراقبة نسبة الأخطاء عند الإدخال مع تنبيه، وفصل واضح للمسؤولية مع فريق البيانات (ownership).
+  </Accordion>
+  <Accordion title="س3. لماذا تُفضَّل Retries مع jitter على Retries بفاصل ثابت؟">
+    الفاصل الثابت يجعل كل العملاء الفاشلين يعيدون المحاولة في نفس اللحظة (**thundering herd**)، فيزيد الضغط على الخدمة المتعثرة. Jitter يوزع المحاولات عشوائيًا في الزمن.
+  </Accordion>
+  <Accordion title="س4. كيف تدير نسخ الـ prompts في نظام إنتاجي؟">
+    الـ prompts كود: تُخزَّن في المستودع (أو prompt registry) بإصدارات، تمر بمراجعة، ولها evals تعمل في CI عند التغيير. كل استجابة في الإنتاج تُسجَّل مع إصدار الـ prompt والنموذج لتمكين التتبع والـ rollback.
+  </Accordion>
+  <Accordion title="س5. ما الفرق بين Mock و Stub و Fake في اختبار مكونات ML؟">
+    **Stub**: يعيد قيمة ثابتة. **Mock**: يعيد قيمة ويتحقق من كيفية استدعائه. **Fake**: تنفيذ مبسط يعمل فعليًا (مثل نموذج صغير أو DB في الذاكرة). للنموذج في اختبارات الوحدة: stub/mock. لاختبار التكامل: fake أو نموذج حقيقي صغير.
+  </Accordion>
+</AccordionGroup>
+
+## مراجع مختارة
+
+- Chip Huyen, *Designing Machine Learning Systems* — الفصول عن Serving و Data Engineering.
+- وثائق FastAPI و Pydantic.
+- Sam Newman, *Building Microservices* (أنماط التكامل).
+- Google SRE Book — فصول *Handling Overload* و *Addressing Cascading Failures*.
